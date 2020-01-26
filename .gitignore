@@ -1,0 +1,11 @@
+*.idea
+*.db
+*.log
+~*.xlsx
+hwnd.txt
+__pycache__
+.DS_Store
+
+logs/*
+output/*
+venv/*

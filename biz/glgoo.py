@@ -8,135 +8,102 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 import datetime, json, random, requests, sys, time, traceback
 
-from biz.common import OrderInfo
-from biz.orm import BlackOrderId
-from utils.common import ConfigUtil, DateUtil, SeleniumUtil, TimeZoneUtil
+from biz.common import BasicInfo
+from biz.orm import Company, PatentBasic, PatentDetail, Citation
+from utils.common import ConfigUtil, SeleniumUtil
 from utils.log import getLogger
+from requestium import Session, Keys
+from fake_useragent import UserAgent
+import random
 
 
 # 读取配置文件
 config = ConfigUtil()
 
 
-def check_home_page(driver):
-
-    logger = getLogger()
-    logger.info("method [check_home_page] start")
-
-    login_result = False
-
-    # h1 element
-    elements_div = driver.find_elements_by_id('widget-fxmXCT')
-    # logger.info("len(elements_div): {0}".format(len(elements_div)))
-    if len(elements_div):
-        element_div = elements_div[0]
-        elements_h2 = element_div.find_elements_by_xpath('.//h2')
-        # logger.info("len(elements_h2): {0}".format(len(elements_h2)))
-        for element_h2 in elements_h2:
-            if 'Your Orders' in element_h2.text.strip():
-                login_result = True
-                break
-            if u'您的订单' in element_h2.text.strip():
-                login_result = True
-                break
-
-    logger.info("method [check_home_page] end, login result: {0}".format(login_result))
-
-    return login_result
+# def check_home_page(driver):
+#
+#     logger = getLogger()
+#     logger.info("method [check_home_page] start")
+#
+#     login_result = False
+#
+#     # h1 element
+#     elements_div = driver.find_elements_by_id('widget-fxmXCT')
+#     # logger.info("len(elements_div): {0}".format(len(elements_div)))
+#     if len(elements_div):
+#         element_div = elements_div[0]
+#         elements_h2 = element_div.find_elements_by_xpath('.//h2')
+#         # logger.info("len(elements_h2): {0}".format(len(elements_h2)))
+#         for element_h2 in elements_h2:
+#             if 'Your Orders' in element_h2.text.strip():
+#                 login_result = True
+#                 break
+#             if u'您的订单' in element_h2.text.strip():
+#                 login_result = True
+#                 break
+#
+#     logger.info("method [check_home_page] end, login result: {0}".format(login_result))
+#
+#     return login_result
 
 # 登录Amazon，返回结果为success、otp或failure
-def login(driver, email, password):
+def search_by_company(driver,company):
 
     logger = getLogger()
-    logger.info("method [login] start, parameter email:{0}, password:{1}".format(email, password))
+    logger.info("method [search_by_company] start")
 
-    login_result = 'failure'
-    shop_region = config.load_value('review', 'shop_region', 'US')
-    # url = 'https://sellercentral.amazon.com/home?language=en_US'
-    # url = 'https://sellercentral.amazon.com/?language=en_US'
-    # url = 'https://sellercentral.amazon.com/'
-    url = config.load_value(shop_region, 'login_url')
+    index_url = config.load_value('glgoo', 'index_url')
+    # url_format = config.load_value('glgoo', 'search_by_company_url')
+    # url = url_format.format(company, company)
+    # result_count = 0
     
     try:
 
-        driver.get(url)
-
-        time.sleep(3)
-        if check_home_page(driver):
-            login_result = 'success'
-            return login_result
-
-        element_button = WebDriverWait(driver, 2).until(
-            EC.element_to_be_clickable((By.ID, 'sign-in-button'))
+        # s = Session(webdriver_path='./chromedriver',
+        #             browser='chrome',
+        #             default_timeout=15,
+        #             webdriver_options={'arguments': ['headless']})
+        # driver.get(url)
+        driver.get(index_url)
+        time.sleep(100)
+        searchButton = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, 'searchButton'))
         )
-        # 读取配置文件中，等待 x ms后，点击登录
-        login_click_wait = config.load_value('amazon', 'login_click_wait', '0')
-        if login_click_wait:
-            wait_milliseconds = int(login_click_wait)
-            wait_milliseconds = random.randint(1, wait_milliseconds)
-            time.sleep(wait_milliseconds / 1000)
-        # 点击继续按钮
-        element_button.click()
-
-        # input email
-        element_email = WebDriverWait(driver, 2).until(
-            EC.presence_of_element_located((By.ID, 'ap_email'))
+        # input company
+        company_input = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, 'searchInput'))
         )
-        email_input_wait = config.load_value('amazon', 'email_input_wait', '0')
-        if email_input_wait:
-            wait_milliseconds = int(email_input_wait)
-            for letter in email:
+        company_input_wait = config.load_value('glgoo', 'company_input_wait', '0')
+        if company_input_wait:
+            wait_milliseconds = int(company_input_wait)
+            for letter in company:
                 curr_wait_milliseconds = random.randint(1, wait_milliseconds)
                 time.sleep(curr_wait_milliseconds / 1000)
-                element_email.send_keys(letter)
+                company_input.send_keys(letter)
         else:
-            element_email.send_keys(email)
+            company_input.send_keys(company)
 
-        # input password & click Sign-in button
-        element_password = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, 'ap_password'))
+        time.sleep(2)
+        searchButton.click()
+        time.sleep(100)
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, 'pagingAndInfo'))
         )
-        password_input_wait = config.load_value('amazon', 'password_input_wait', '0')
-        if password_input_wait:
-            wait_milliseconds = int(password_input_wait)
-            for letter in password:
-                curr_wait_milliseconds = random.randint(1, wait_milliseconds)
-                time.sleep(curr_wait_milliseconds / 1000)
-                element_password.send_keys(letter)
-        else:
-            element_password.send_keys(password)
-
-        element_button = WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable((By.ID, 'signInSubmit'))
-        )
-        signin_comfirm_wait = config.load_value('amazon', 'signin_comfirm_wait', '0')
-        if signin_comfirm_wait:
-            wait_milliseconds = int(signin_comfirm_wait)
-            wait_milliseconds = random.randint(1, wait_milliseconds)
-            time.sleep(wait_milliseconds / 1000)
-        element_button.click()
-
-        time.sleep(3)
-        if check_home_page(driver):
-            login_result = 'success'
-        else:
-            # auth signin
-            elements_button = driver.find_elements_by_id('auth-signin-button')
-            if len(elements_button):
-                login_result = 'otp'
-            elements_button = driver.find_elements_by_id('auth-send-code')
-            if len(elements_button):
-                login_result = 'otp'
+        count_section = driver.find_element_by_id('count')
+        tags = count_section.find_elements_by_tag_name('span')
+        print(len(tags))
+        # result_count = int(count_section.find_elements_by_tag_name('span')[3].text)
 
     except TimeoutException as e:
         logger.info(traceback.format_exc())
 
-    logger.info("method [login] end, login result: {0}".format(login_result))
+    # logger.info("method [search_by_company] end, result count: {0}".format(result_count))
 
-    return login_result
+    # return result_count
 
 # 获取orders列表每页上的order信息
-def get_order_by_page(driver, page_no, timestamp_range_start, timestamp_range_end, record_count):
+def search_by_company_eachpage(driver, url):
 
     logger = getLogger()
     logger.info("method [get_order_by_page] start")
@@ -575,11 +542,21 @@ def get_order_detail(driver, order_info):
 
 if __name__ == '__main__':
 
-    driver = webdriver.Chrome()
+    ua = UserAgent()
+    user_agent_random = ua.random
+    user_agent_random = 'user-agent=' + user_agent_random
+    print(user_agent_random)
+    # pass
+    options = webdriver.FirefoxOptions()
+    # options.add_argument('lang=zh_CN.UTF-8')
+    options.add_argument(user_agent_random)
+    # driver = webdriver.firefox(options=options)
+    driver = webdriver.Firefox()
+    time.sleep(10)
 
     try:
         # test_search(driver)
-        test_click(driver)
+        search_by_company(driver, '中兴通讯股份有限公司')
     finally:
         driver.quit()
 

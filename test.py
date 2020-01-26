@@ -4,13 +4,13 @@ from playhouse.shortcuts import model_to_dict, dict_to_model
 from selenium import webdriver
 import datetime, peewee, random, sys, time
 
-from biz.amazon import login, check_home_page, get_orders, check_refund, check_feedback, request_review, get_order_detail
-from biz.common import User, OrderInfo
-from biz.orm import Job, Order
-from biz.orm import initial_database
-from biz.reload import load_state_time
-from main import login_amazon, check_home_page, get_order_detail, process_order, process_job
-from utils.common import ClassUtil, ConfigUtil, DateUtil, TimeZoneUtil, TypeUtil
+# from biz.amazon import login, check_home_page, get_orders, check_refund, check_feedback, request_review, get_order_detail
+# from biz.common import User, OrderInfo
+# from biz.orm import Job, Order
+# from biz.orm import initial_database
+# from biz.reload import load_state_time
+# from main import login_amazon, check_home_page, get_order_detail, process_order, process_job
+# from utils.common import ClassUtil, ConfigUtil, DateUtil, TimeZoneUtil, TypeUtil
 from utils.log import getLogger
 
 '''
@@ -309,35 +309,36 @@ def test_timezone():
 
 
 if __name__ == '__main__':
+    test_log()
 
-    if config.load_value('system', 'init_database') == 'True':
-        initial_database()
-        load_state_time('data/State.Time.xlsx')
-
-    if len(sys.argv) == 2:
-        if sys.argv[1] == 'main':
-            test_main()
-        elif sys.argv[1] == 'process_order':
-            test_process_order()
-        elif sys.argv[1] == 'process_job':
-            test_process_job()
-        elif sys.argv[1] == 'search_click':
-            test_search_click()
-        elif sys.argv[1] == 'get_order_detail':
-            test_get_order_detail()
-        elif sys.argv[1] == 'amazon_request_review':
-            test_amazon_request_review()
-        # elif sys.argv[1] == 'main_request_user_review':
-        #     test_main_request_user_review()
-        elif sys.argv[1] == 'log':
-            test_log()
-        elif sys.argv[1] == 'show':
-            test_show()
-        elif sys.argv[1] == 'config':
-            test_config()
-        elif sys.argv[1] == 'timezone':
-            test_timezone()
-            
-    else:
-        pass
+    # if config.load_value('system', 'init_database') == 'True':
+    #     initial_database()
+    #     load_state_time('data/State.Time.xlsx')
+    #
+    # if len(sys.argv) == 2:
+    #     if sys.argv[1] == 'main':
+    #         test_main()
+    #     elif sys.argv[1] == 'process_order':
+    #         test_process_order()
+    #     elif sys.argv[1] == 'process_job':
+    #         test_process_job()
+    #     elif sys.argv[1] == 'search_click':
+    #         test_search_click()
+    #     elif sys.argv[1] == 'get_order_detail':
+    #         test_get_order_detail()
+    #     elif sys.argv[1] == 'amazon_request_review':
+    #         test_amazon_request_review()
+    #     # elif sys.argv[1] == 'main_request_user_review':
+    #     #     test_main_request_user_review()
+    #     elif sys.argv[1] == 'log':
+    #         test_log()
+    #     elif sys.argv[1] == 'show':
+    #         test_show()
+    #     elif sys.argv[1] == 'config':
+    #         test_config()
+    #     elif sys.argv[1] == 'timezone':
+    #         test_timezone()
+    #
+    # else:
+    #     pass
 
