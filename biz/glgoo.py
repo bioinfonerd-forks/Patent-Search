@@ -10,193 +10,90 @@ import datetime, json, random, requests, sys, time, traceback
 
 from biz.common import BasicInfo
 from biz.orm import Company, PatentBasic, PatentDetail, Citation
-from utils.common import ConfigUtil, SeleniumUtil
+from utils.common import ConfigUtil, SeleniumUtil, DateUtil
 from utils.log import getLogger
 from requestium import Session, Keys
 from fake_useragent import UserAgent
-import random
 
 
 # 读取配置文件
 config = ConfigUtil()
 
 
-# def check_home_page(driver):
-#
-#     logger = getLogger()
-#     logger.info("method [check_home_page] start")
-#
-#     login_result = False
-#
-#     # h1 element
-#     elements_div = driver.find_elements_by_id('widget-fxmXCT')
-#     # logger.info("len(elements_div): {0}".format(len(elements_div)))
-#     if len(elements_div):
-#         element_div = elements_div[0]
-#         elements_h2 = element_div.find_elements_by_xpath('.//h2')
-#         # logger.info("len(elements_h2): {0}".format(len(elements_h2)))
-#         for element_h2 in elements_h2:
-#             if 'Your Orders' in element_h2.text.strip():
-#                 login_result = True
-#                 break
-#             if u'您的订单' in element_h2.text.strip():
-#                 login_result = True
-#                 break
-#
-#     logger.info("method [check_home_page] end, login result: {0}".format(login_result))
-#
-#     return login_result
+def get_search_company_url(company, page):
 
-# 登录Amazon，返回结果为success、otp或failure
-def search_by_company(driver,company):
+    logger = getLogger()
+    logger.info("method [get_search_company_url] start")
+
+    url_format = config.load_value('search', 'search_by_company', '')
+    date_begin = config.load_value('search', 'date_begin', '20000101')
+    search_interval = int(config.load_value('search', 'search_interval', '4'))
+    date_end = DateUtil.get_date(date_begin, search_interval)
+    # 参数：企业名称 结束日期 开始日期 页数（从0开始）
+    url = url_format.format(company, date_end, date_begin, page)
+
+    logger.info("method [get_search_company_url] end")
+    return url
+
+
+# 按企业名称查询，返回结果为总页数及第一页内容
+def search_by_company(company):
 
     logger = getLogger()
     logger.info("method [search_by_company] start")
 
-    index_url = config.load_value('glgoo', 'index_url')
-    # url_format = config.load_value('glgoo', 'search_by_company_url')
-    # url = url_format.format(company, company)
-    # result_count = 0
-    
-    try:
+    url = get_search_company_url(company, 0)
+    # 随机user agent
+    ua = UserAgent()
+    user_agent_random = ua.random
 
-        # s = Session(webdriver_path='./chromedriver',
-        #             browser='chrome',
-        #             default_timeout=15,
-        #             webdriver_options={'arguments': ['headless']})
-        # driver.get(url)
-        driver.get(index_url)
-        time.sleep(100)
-        searchButton = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, 'searchButton'))
+    if url:
+        result = requests.get(
+            url=url,
+            headers={'Content-Type': 'application/json',
+                     'user-agent': user_agent_random
+                     }
         )
-        # input company
-        company_input = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, 'searchInput'))
-        )
-        company_input_wait = config.load_value('glgoo', 'company_input_wait', '0')
-        if company_input_wait:
-            wait_milliseconds = int(company_input_wait)
-            for letter in company:
-                curr_wait_milliseconds = random.randint(1, wait_milliseconds)
-                time.sleep(curr_wait_milliseconds / 1000)
-                company_input.send_keys(letter)
-        else:
-            company_input.send_keys(company)
+        result_json = result.json()
+        result_total = result_json['results']
+        total_num_results = result_total['total_num_results']
+        # 页数
+        total_num_pages = result_total['total_num_pages']
+        result_cluster = result_total['cluster'][0]
+        # 具体结果，内部结构为字典
+        result_list = result_cluster['result']
+        print(len(result_list))
 
-        time.sleep(2)
-        searchButton.click()
-        time.sleep(100)
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, 'pagingAndInfo'))
-        )
-        count_section = driver.find_element_by_id('count')
-        tags = count_section.find_elements_by_tag_name('span')
-        print(len(tags))
-        # result_count = int(count_section.find_elements_by_tag_name('span')[3].text)
+    logger.info("method [search_by_company] end")
 
-    except TimeoutException as e:
-        logger.info(traceback.format_exc())
+    return total_num_pages, result_list
 
-    # logger.info("method [search_by_company] end, result count: {0}".format(result_count))
-
-    # return result_count
-
-# 获取orders列表每页上的order信息
-def search_by_company_eachpage(driver, url):
-
+# 获取按企业名称查询，返回每一页的结果信息
+def search_by_company_eachpage(company, page):
     logger = getLogger()
-    logger.info("method [get_order_by_page] start")
-    # 读取orders列表的url
-    shop_region = config.load_value('review', 'shop_region', 'US')
-    url_format = config.load_value(shop_region, 'orderlist_url')
-    url_initial = url_format.format(page_no, timestamp_range_start, timestamp_range_end)
+    logger.info("method [search_by_company_eachpage] start")
 
-    orders = []
-    # 读取Amazon页面可能显示的时区信息
-    str_timezones = config.load_value(shop_region, 'default_timezone')
-    list_timezone = str_timezones.split(',')
+    url = get_search_company_url(company, page)
+    # 随机user agent
+    ua = UserAgent()
+    user_agent_random = ua.random
 
-    try:
-        driver.get(url_initial)
-        logger.info("get_order_by_page, access url_initial: {0}".format(url_initial))
-        WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.ID, 'orders-table'))
+    if url:
+        result = requests.get(
+            url=url,
+            headers={'Content-Type': 'application/json',
+                     'user-agent': user_agent_random
+                     }
         )
-        time.sleep(5)
-        elements_orders_table = driver.find_elements_by_id('orders-table')
-        # logger.info("len(elements_orders_table): {0}".format(len(elements_orders_table)))
-        if len(elements_orders_table):
-            element_orders_table = elements_orders_table[0]
-            elements_tr = None
-            while True:
-                elements_tr = element_orders_table.find_elements_by_tag_name('tr')
-                # logger.info("len(elements_tr): {0}".format(len(elements_tr)))
-                if len(elements_tr) > record_count:
-                    break
-                SeleniumUtil.moveEnd(driver)
+        result_json = result.json()
+        result_total = result_json['results']
+        result_cluster = result_total['cluster'][0]
+        # 具体结果，内部结构为字典
+        result_list = result_cluster['result']
 
-            for element_tr in elements_tr:
-                order_info = OrderInfo()
-                elements_td = element_tr.find_elements_by_tag_name('td')
-                # logger.info("len(elements_td): {0}".format(len(elements_td)))
-                if len(elements_td):
-                    for i, element_td in enumerate(elements_td):
-                        # order date
-                        if i == 1:
-                            elements_div = element_td.find_elements_by_xpath('.//div/div/div')
-                            
-                            for j, element_div in enumerate(elements_div):
-                                if j == 1:
-                                    order_info.order_date = element_div.text
-                                elif j == 2:
-                                    order_info.order_date = order_info.order_date + " " + element_div.text
-                            # 11/30/2019 3:52 PM PST
-                            # logger.info("order_date text: {0}".format(order_info.order_date))
-                            try:
-                                order_info.order_date = DateUtil.strip_tz_str(order_info.order_date, list_timezone)
-                                order_info.order_date = datetime.datetime.strptime(order_info.order_date,"%m/%d/%Y %I:%M %p")
-                                # index_of_GM = order_info.order_date.find('GM')
-                                # if index_of_GM < 0:
-                                #     order_info.order_date = datetime.datetime.strptime(order_info.order_date, "%m/%d/%Y %I:%M %p")
-                                # else:
-                                #     str_date = order_info.order_date[:index_of_GM].strip()
-                                #     order_info.order_date = datetime.datetime.strptime(str_date, "%d/%m/%Y %H:%M")
-                            except Exception as e:
-                                logger.info(traceback.format_exc())
-                                continue
-                            # logger.info("order_date datetime: {0}".format(order_info.order_date))
-                        # order id & buyer name
-                        elif i == 2:
-                            elements_a = element_td.find_elements_by_tag_name('a')
-                            for j, element_a in enumerate(elements_a):
-                                if j == 0:
-                                    order_info.order_id = element_a.text
-                                elif j == 1:
-                                    order_info.buyer_name = element_a.text
-                        # customer option
-                        elif i == 5:
-                            elements_span = element_td.find_elements_by_xpath('.//div/div/div/span')
-                            if len(elements_span):
-                                element_span = elements_span[0]
-                                order_info.customer_option = element_span.text
+    logger.info("method [search_by_company_eachpage] end")
 
-                if order_info.order_id:
-                    # 判断order id是否在黑名单中
-                    query = BlackOrderId.select().where(BlackOrderId.order_id == order_info.order_id)
-                    if len(query) == 0:
-                        orders.append(order_info)
-                    else:
-                        logger.info('order {0} already exists in black list'.format(order_info.order_id))
-                        continue
-
-    except Exception as e:
-        logger.info(traceback.format_exc())
-        raise e
-
-    logger.info("method [get_order_by_page] end")
-
-    return orders
+    return result_list
 
 # 取得全部订单信息
 def get_orders(driver):
@@ -542,23 +439,32 @@ def get_order_detail(driver, order_info):
 
 if __name__ == '__main__':
 
-    ua = UserAgent()
-    user_agent_random = ua.random
-    user_agent_random = 'user-agent=' + user_agent_random
-    print(user_agent_random)
-    # pass
-    options = webdriver.FirefoxOptions()
-    # options.add_argument('lang=zh_CN.UTF-8')
-    options.add_argument(user_agent_random)
-    # driver = webdriver.firefox(options=options)
-    driver = webdriver.Firefox()
-    time.sleep(10)
+    # ua = UserAgent()
+    # user_agent_random = ua.random
+    # user_agent_random = 'user-agent=' + user_agent_random
+    # print(user_agent_random)
+    # # pass
+    # options = webdriver.FirefoxOptions()
+    # # options.add_argument('lang=zh_CN.UTF-8')
+    # options.add_argument(user_agent_random)
+    # # driver = webdriver.firefox(options=options)
+    # driver = webdriver.Firefox()
+    # time.sleep(10)
 
     try:
         # test_search(driver)
-        search_by_company(driver, '中兴通讯股份有限公司')
-    finally:
-        driver.quit()
+        search_by_company('中兴通讯股份有限公司')
+    except Exception as e:
+        print(e)
+
+    # url = "https://patents.glgoo.top/xhr/query?url=assignee%3D中兴通讯股份有限公司%26before%3Dpriority%3A20000401%26after%3Dpriority%3A20000101%26num%3D100%26page%3D0&exp="
+    #
+    # payload = {}
+    # headers = {'user-agent': "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36"}
+    #
+    # response = requests.request("GET", url, headers=headers, data=payload)
+    #
+    # print(response.text.encode('utf8'))
 
 
 

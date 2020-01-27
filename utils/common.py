@@ -1,5 +1,6 @@
 import configparser, datetime, pytz, time
 from selenium.webdriver.common.keys import Keys
+from dateutil.relativedelta import relativedelta
 # from utils.orm import Region, TimeZone
 
 
@@ -9,6 +10,16 @@ class SeleniumUtil(object):
     def moveEnd(driver):
         driver.find_element_by_tag_name("body").send_keys(Keys.END)
         time.sleep(1)
+
+
+class DateUtil(object):
+
+    @staticmethod
+    def get_date(date_begin, month_interval):
+        date_begin = datetime.datetime.strptime(date_begin, "%Y%m%d")
+        date_end = date_begin + relativedelta(months=month_interval)
+        date_end = datetime.datetime.strftime(date_end, "%Y%m%d")
+        return date_end
 
 
 class ConfigUtil(object):
@@ -104,5 +115,5 @@ class ClassUtil(object):
 
 
 if __name__ == '__main__':
-
+    DateUtil.get_date('20000101', 4)
     pass

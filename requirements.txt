@@ -8,3 +8,4 @@ pandas
 xlrd
 xlwt
 tqdm
+python-dateutil
