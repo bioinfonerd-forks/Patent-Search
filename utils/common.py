@@ -16,11 +16,23 @@ class DateUtil(object):
 
     @staticmethod
     def get_date(date_begin, month_interval):
+        date_now = datetime.datetime.now()
         date_begin = datetime.datetime.strptime(date_begin, "%Y%m%d")
+        if date_begin > date_now:
+            return ''
         date_end = date_begin + relativedelta(months=month_interval)
-        date_end = datetime.datetime.strftime(date_end, "%Y%m%d")
+
+        if date_now < date_end:
+            date_end = date_now
+        date_end = date_end.strftime("%Y%m%d")
         return date_end
 
+    @staticmethod
+    def get_next_day(date_begin):
+        date_begin = datetime.datetime.strptime(date_begin, "%Y%m%d")
+        next_day = date_begin + datetime.timedelta(days=1)
+        next_day_str = next_day.strftime("%Y%m%d")
+        return next_day_str
 
 class ConfigUtil(object):
 
@@ -115,5 +127,6 @@ class ClassUtil(object):
 
 
 if __name__ == '__main__':
-    DateUtil.get_date('20000101', 4)
-    pass
+    date_str = DateUtil.get_next_day('20200127')
+    print(date_str)
+    # pass

@@ -87,10 +87,6 @@ def test_main():
     pass
 
 
-def test_main():
-    main()
-
-
 if __name__ == '__main__':
 
     if len(sys.argv) == 1:

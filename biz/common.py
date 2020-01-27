@@ -3,26 +3,16 @@ from utils.common import ConfigUtil
 config = ConfigUtil()
 
 
-# class User():
-#
-#     def __init__(self, email, password):
-#         self.email = email
-#         self.password = password
-
-
-class BasicInfo:
+class PatentDetailInfo:
 
     def __init__(self):
 
-        self.stckcd = None
-        self.company = None
         self.publication_number = None
-        self.worldwide = None
-        self.inventor = None
-        self.company2 = None
-        self.priority = None
-        self.filed = None
-        self.published = None
+        self.patent_citations_number = None
+        self.cited_by_number = None
+        self.classifications = None
+        self.claims = None
+        self.legal_events = None
 
 
 if __name__ == '__main__':

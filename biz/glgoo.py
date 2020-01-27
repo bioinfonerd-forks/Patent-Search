@@ -8,7 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 import datetime, json, random, requests, sys, time, traceback
 
-from biz.common import BasicInfo
+from biz.common import PatentDetailInfo
 from biz.orm import Company, PatentBasic, PatentDetail, Citation
 from utils.common import ConfigUtil, SeleniumUtil, DateUtil
 from utils.log import getLogger
@@ -20,15 +20,13 @@ from fake_useragent import UserAgent
 config = ConfigUtil()
 
 
-def get_search_company_url(company, page):
+# 按企业名称查询，取得url
+def get_search_company_url(company, date_begin, date_end, page):
 
     logger = getLogger()
     logger.info("method [get_search_company_url] start")
 
     url_format = config.load_value('search', 'search_by_company', '')
-    date_begin = config.load_value('search', 'date_begin', '20000101')
-    search_interval = int(config.load_value('search', 'search_interval', '4'))
-    date_end = DateUtil.get_date(date_begin, search_interval)
     # 参数：企业名称 结束日期 开始日期 页数（从0开始）
     url = url_format.format(company, date_end, date_begin, page)
 
@@ -36,16 +34,35 @@ def get_search_company_url(company, page):
     return url
 
 
-# 按企业名称查询，返回结果为总页数及第一页内容
-def search_by_company(company):
-
+def get_search_patent_url(publication_number):
     logger = getLogger()
-    logger.info("method [search_by_company] start")
+    logger.info("method [get_search_patent_url] start")
 
-    url = get_search_company_url(company, 0)
-    # 随机user agent
+    url_format = config.load_value('search', 'search_by_patent', '')
+    # 参数：专利号
+    url = url_format.format(publication_number)
+
+    logger.info("method [get_search_patent_url] end")
+    return url
+
+
+def get_random_user_agent():
     ua = UserAgent()
     user_agent_random = ua.random
+    return user_agent_random
+
+
+# 按企业名称查询，返回结果为总页数及第一页内容
+def search_by_company(company, date_begin, date_end):
+
+    logger = getLogger()
+    logger.info("method [search_by_company] start, company is {0}, date_begin is {1}, date_end is {2}".format(
+        company, date_begin, date_end))
+
+    url = get_search_company_url(company, date_begin, date_end, 0)
+    logger.info(url)
+    # 随机user agent
+    user_agent_random = get_random_user_agent()
 
     if url:
         result = requests.get(
@@ -56,24 +73,29 @@ def search_by_company(company):
         )
         result_json = result.json()
         result_total = result_json['results']
-        total_num_results = result_total['total_num_results']
+        result_count = result_total['total_num_results']
+        logger.info('result_count is {0}'.format(result_count))
         # 页数
         total_num_pages = result_total['total_num_pages']
         result_cluster = result_total['cluster'][0]
         # 具体结果，内部结构为字典
-        result_list = result_cluster['result']
-        print(len(result_list))
+        result_list = {}
+        if len(result_cluster):
+            result_list = result_cluster['result']
 
-    logger.info("method [search_by_company] end")
+    logger.info("method [search_by_company] end, company is {0}, date_begin is {1}, date_end is {2}".format(
+        company, date_begin, date_end))
 
     return total_num_pages, result_list
 
-# 获取按企业名称查询，返回每一页的结果信息
-def search_by_company_eachpage(company, page):
-    logger = getLogger()
-    logger.info("method [search_by_company_eachpage] start")
 
-    url = get_search_company_url(company, page)
+# 按企业名称查询，返回每一页的结果信息（从第二页开始）
+def search_by_company_eachpage(company, date_begin, date_end, page):
+    logger = getLogger()
+    logger.info("method [search_by_company_eachpage] start, company is {0}, date_begin is {1}, date_end is {2},current page is {3}".format(
+        company, date_begin, date_end, page))
+
+    url = get_search_company_url(company, date_begin, date_end, page)
     # 随机user agent
     ua = UserAgent()
     user_agent_random = ua.random
@@ -91,9 +113,52 @@ def search_by_company_eachpage(company, page):
         # 具体结果，内部结构为字典
         result_list = result_cluster['result']
 
-    logger.info("method [search_by_company_eachpage] end")
+    logger.info(
+        "method [search_by_company_eachpage] end, company is {0}, date_begin is {1}, date_end is {2},current page is {3}".format(
+            company, date_begin, date_end, page))
 
     return result_list
+
+
+def search_by_patent(patent):
+    logger = getLogger()
+    logger.info("method [search_by_patent] start, patent is {0}".format(patent))
+    patent_info = PatentDetailInfo()
+    patent_info.publication_number = patent.publication_number
+    url = get_search_patent_url(patent.publication_number)
+    # 随机user agent
+    user_agent_random = get_random_user_agent()
+
+    if url:
+        result = requests.get(
+            url=url,
+            headers={'Content-Type': 'application/json',
+                     'user-agent': user_agent_random
+                     }
+        )
+        result_json = result.json()
+        # Classifications
+        classification_list = get_classifications(result_json)
+        classifications = ' '.join(classification_list)
+        patent_info.classifications = classifications
+
+
+def get_classifications(result_json):
+
+    classification_list = []
+    soup = BeautifulSoup(result_json, 'lxml')
+    first_ul = soup.find(attrs={'itemprop': 'cpcs'})
+    if len(first_ul):
+        parent_ul = first_ul.parent.parent
+        for li in parent_ul.children:
+            classification = ''
+            if len(li) > 1:
+                all_li = li.findAll('li')
+                for li_child in all_li:
+                    classification = li_child.find('span').text
+                classification_list.append(classification)
+
+    return classification_list
 
 # 取得全部订单信息
 def get_orders(driver):
@@ -438,33 +503,175 @@ def get_order_detail(driver, order_info):
 
 
 if __name__ == '__main__':
+    result_json = '''<section>
+    <h2>Classifications</h2>
 
-    # ua = UserAgent()
-    # user_agent_random = ua.random
-    # user_agent_random = 'user-agent=' + user_agent_random
-    # print(user_agent_random)
-    # # pass
-    # options = webdriver.FirefoxOptions()
-    # # options.add_argument('lang=zh_CN.UTF-8')
-    # options.add_argument(user_agent_random)
-    # # driver = webdriver.firefox(options=options)
-    # driver = webdriver.Firefox()
-    # time.sleep(10)
+    <ul>
+      <li>
+        <ul itemprop="cpcs" itemscope repeat>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H</span>&mdash;<span itemprop="Description">ELECTRICITY</span>
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04</span>&mdash;<span itemprop="Description">ELECTRIC COMMUNICATION TECHNIQUE</span>
 
-    try:
-        # test_search(driver)
-        search_by_company('中兴通讯股份有限公司')
-    except Exception as e:
-        print(e)
 
-    # url = "https://patents.glgoo.top/xhr/query?url=assignee%3D中兴通讯股份有限公司%26before%3Dpriority%3A20000401%26after%3Dpriority%3A20000101%26num%3D100%26page%3D0&exp="
-    #
-    # payload = {}
-    # headers = {'user-agent': "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36"}
-    #
-    # response = requests.request("GET", url, headers=headers, data=payload)
-    #
-    # print(response.text.encode('utf8'))
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04J</span>&mdash;<span itemprop="Description">MULTIPLEX COMMUNICATION</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04J13/00</span>&mdash;<span itemprop="Description">Code division multiplex systems</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04J13/16</span>&mdash;<span itemprop="Description">Code allocation</span>
+            <meta itemprop="Leaf" content="true">
+
+            <meta itemprop="FirstCode" content="true">
+          </li>
+          </ul>
+      </li>
+      <li>
+        <ul itemprop="cpcs" itemscope repeat>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H</span>&mdash;<span itemprop="Description">ELECTRICITY</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04</span>&mdash;<span itemprop="Description">ELECTRIC COMMUNICATION TECHNIQUE</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04W</span>&mdash;<span itemprop="Description">WIRELESS COMMUNICATION NETWORKS</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04W72/00</span>&mdash;<span itemprop="Description">Local resource management, e.g. wireless traffic scheduling or selection or allocation of wireless resources</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04W72/04</span>&mdash;<span itemprop="Description">Wireless resource allocation</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04W72/044</span>&mdash;<span itemprop="Description">Wireless resource allocation where an allocation plan is defined based on the type of the allocated resource</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04W72/0466</span>&mdash;<span itemprop="Description">Wireless resource allocation where an allocation plan is defined based on the type of the allocated resource the resource being a scrambling code</span>
+            <meta itemprop="Leaf" content="true">
+
+
+          </li>
+          </ul>
+      </li>
+      <li>
+        <ul itemprop="cpcs" itemscope repeat>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H</span>&mdash;<span itemprop="Description">ELECTRICITY</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04</span>&mdash;<span itemprop="Description">ELECTRIC COMMUNICATION TECHNIQUE</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04B</span>&mdash;<span itemprop="Description">TRANSMISSION</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04B2201/00</span>&mdash;<span itemprop="Description">Indexing scheme relating to details of transmission systems not covered by a single group of H04B3/00 - H04B13/00</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04B2201/69</span>&mdash;<span itemprop="Description">Orthogonal indexing scheme relating to spread spectrum techniques in general</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04B2201/707</span>&mdash;<span itemprop="Description">Orthogonal indexing scheme relating to spread spectrum techniques in general relating to direct sequence modulation</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04B2201/70703</span>&mdash;<span itemprop="Description">Orthogonal indexing scheme relating to spread spectrum techniques in general relating to direct sequence modulation using multiple or variable rates</span>
+            <meta itemprop="Leaf" content="true">
+            <meta itemprop="Additional" content="true">
+
+          </li>
+          </ul>
+      </li>
+      <li>
+        <ul itemprop="cpcs" itemscope repeat>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H</span>&mdash;<span itemprop="Description">ELECTRICITY</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04</span>&mdash;<span itemprop="Description">ELECTRIC COMMUNICATION TECHNIQUE</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04W</span>&mdash;<span itemprop="Description">WIRELESS COMMUNICATION NETWORKS</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04W88/00</span>&mdash;<span itemprop="Description">Devices specially adapted for wireless communication networks, e.g. terminals, base stations or access point devices</span>
+
+
+
+          </li>
+          <li itemprop="cpcs" itemscope repeat>
+            <span itemprop="Code">H04W88/12</span>&mdash;<span itemprop="Description">Access point controller devices</span>
+            <meta itemprop="Leaf" content="true">
+            <meta itemprop="Additional" content="true">
+
+          </li>
+          </ul>
+      </li>
+      </ul>
+  </section>'''
+    classification_list = get_classifications(result_json)
+    print(classification_list)
+    # get_classifications(result_json)
+
+
+
 
 
 
