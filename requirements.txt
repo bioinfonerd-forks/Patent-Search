@@ -9,3 +9,4 @@ xlrd
 xlwt
 tqdm
 python-dateutil
+fake-useragent

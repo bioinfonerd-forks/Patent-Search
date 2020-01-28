@@ -1,11 +1,7 @@
 # -*- coding:utf8 -*-
-from peewee import BooleanField, CharField, DateTimeField, ForeignKeyField, IntegerField, PrimaryKeyField
+from peewee import BooleanField, CharField, ForeignKeyField, IntegerField, PrimaryKeyField
 from utils.orm import BaseModel, database
 from utils.log import getLogger
-
-
-# 读取配置文件
-# config = ConfigUtil()
 
 
 '''

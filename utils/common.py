@@ -1,15 +1,5 @@
-import configparser, datetime, pytz, time
-from selenium.webdriver.common.keys import Keys
+import configparser, datetime
 from dateutil.relativedelta import relativedelta
-# from utils.orm import Region, TimeZone
-
-
-class SeleniumUtil(object):
-
-    @staticmethod
-    def moveEnd(driver):
-        driver.find_element_by_tag_name("body").send_keys(Keys.END)
-        time.sleep(1)
 
 
 class DateUtil(object):
@@ -33,6 +23,7 @@ class DateUtil(object):
         next_day = date_begin + datetime.timedelta(days=1)
         next_day_str = next_day.strftime("%Y%m%d")
         return next_day_str
+
 
 class ConfigUtil(object):
 
@@ -64,26 +55,6 @@ class ConfigUtil(object):
         result = self.load_value(key_base, key_sub, default_value)
         if result and len(result.split(',')) > 1:
             result = result.split(',')
-
-        return result
-
-    # work_time=0830:1730
-    # work_time=1:0830:1730|2:0730:2230|5:1110:2359
-    def load_work_time(self, key_base, key_sub, default_value=''):
-
-        result = ""
-        result = self.load_value(key_base, key_sub, default_value)
-        if result:
-            # work_time={1:[0830,1730], 2:[0730,2230], 5:[1110:2359]}
-            if '|' in result:
-                work_time_dict = {}
-                for day_info in result.split('|'):
-                    time_info = day_info.split(':')
-                    work_time_dict[time_info[0]] = [time_info[1], time_info[2]]
-                result = work_time_dict
-            # work_time=0830:1730
-            else:
-                result = result.split(':')
 
         return result
 

@@ -1,8 +1,8 @@
 # -*- coding:utf8 -*-
-from peewee import MySQLDatabase, SqliteDatabase
+from peewee import SqliteDatabase
 from peewee import Model
-from peewee import BooleanField, CharField, DateTimeField, ForeignKeyField, IntegerField, PrimaryKeyField
-from playhouse.migrate import SqliteMigrator, migrate
+from peewee import CharField, DateTimeField
+from playhouse.migrate import SqliteMigrator
 import datetime
 
 
