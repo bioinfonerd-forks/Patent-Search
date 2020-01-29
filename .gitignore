@@ -1,11 +1,15 @@
+# PyCharm
 *.idea
-*.db
-*.log
-~*.xlsx
-hwnd.txt
-__pycache__
-.DS_Store
 
+# work file
 logs/*
 output/*
+__pycache__
+.DS_Store
+*.db
+*.log
+~*.docx
+~*.xlsx
+
+# Virtual Env
 venv/*
