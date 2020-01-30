@@ -90,9 +90,9 @@ def search_by_company_eachpage(company, date_begin, date_end, page):
         company, date_begin, date_end, page))
 
     url = get_search_company_url(company, date_begin, date_end, page)
+
     # 随机user agent
-    ua = UserAgent()
-    user_agent_random = ua.random
+    user_agent_random = get_random_user_agent()
 
     if url:
         result = requests.get(
