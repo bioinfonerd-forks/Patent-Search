@@ -143,4 +143,4 @@ if __name__ == '__main__':
     initial_table_company()
     load_company('data/company.csv')
     get_basic_info()
-    get_patent_detail()
+    # get_patent_detail()

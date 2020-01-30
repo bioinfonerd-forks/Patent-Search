@@ -42,7 +42,7 @@ def get_search_patent_url(publication_number):
 def get_random_user_agent():
     # ua = UserAgent()
     # user_agent_random = ua.random
-    user_agent_random = '''Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'''
+    user_agent_random = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'
     return user_agent_random
 
 
