@@ -1,4 +1,6 @@
 import configparser, datetime
+from typing import re
+
 from dateutil.relativedelta import relativedelta
 
 
@@ -82,7 +84,6 @@ class ClassUtil(object):
 
         return properties
 
-
     @staticmethod
     def get_instance_by_dict(object, properties):
 
@@ -95,6 +96,19 @@ class ClassUtil(object):
             properties[name] = value
 
         return properties
+
+
+class StringUtil(object):
+    @staticmethod
+    def check_chinese(str):
+        zhmodel = re.compile(u'[\u4e00-\u9fa5]')  # 检查中文
+        # zhmodel = re.compile(u'[^\u4e00-\u9fa5]')   #检查非中文
+
+        match = zhmodel.search(str)
+        if match:
+            return True
+        else:
+            return False
 
 
 if __name__ == '__main__':

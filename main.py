@@ -1,11 +1,10 @@
 # -*- coding:utf8 -*-
 import time
-from biz.glgoo import search_by_company, search_by_company_eachpage, search_by_patent
+from biz.glgoo import search_by_company, search_by_company_eachpage, search_by_patent, search_by_patent_html
 from biz.orm import initial_database, initial_table_company, Company, PatentBasic, PatentDetail
 from biz.reload import load_company
 from utils.common import ConfigUtil, DateUtil
 from utils.log import getLogger
-
 
 # 读取配置文件
 config = ConfigUtil()
@@ -46,10 +45,11 @@ def get_basic_info():
                 set_basic_info(result_list, company)
                 # 查询结果为多个页面
                 while True:
-                    if current_page < (total_num_pages-1):
+                    if current_page < (total_num_pages - 1):
                         time.sleep(search_company_page_interval)
                         current_page = current_page + 1
-                        result_list = search_by_company_eachpage(company.company_name, date_begin, date_end, current_page)
+                        result_list = search_by_company_eachpage(company.company_name, date_begin, date_end,
+                                                                 current_page)
                         set_basic_info(result_list, company)
                     else:
                         break
@@ -109,7 +109,7 @@ def get_patent_detail():
 
     patent_list = PatentBasic.select()
     for patent in patent_list:
-        patent_info, citations_of_list, cited_by_list = search_by_patent(patent)
+        patent_info, citations_of_list, cited_by_list = search_by_patent_html(patent)
         set_patent_detail(patent_info)
         if len(citations_of_list):
             # ToDo 数据插入数据库
@@ -137,10 +137,10 @@ def set_patent_detail(patent_info):
 
 if __name__ == '__main__':
 
-    if config.load_value('system', 'init_database', 'False') == 'True':
-        initial_database()
+    # if config.load_value('system', 'init_database', 'False') == 'True':
+    #    initial_database()
 
-    initial_table_company()
-    load_company('data/company.csv')
-    get_basic_info()
-    # get_patent_detail()
+    # initial_table_company()
+    # load_company('data/company.csv')
+    # get_basic_info()
+    get_patent_detail()
