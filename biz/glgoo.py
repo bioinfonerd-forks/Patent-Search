@@ -228,21 +228,23 @@ def set_citation(citation, item, user_agent_random):
                  })
     soup_child = BeautifulSoup(result_child.content, 'lxml')
     child_citations_items = soup_child.find_all(attrs={"itemprop": "backwardReferencesFamily"})
-    citation.patent_citations_number = child_citations_items.count()
+    citation.patent_citations_number = len(child_citations_items)
     child_cited_items = soup_child.find_all(attrs={"itemprop": "forwardReferencesOrig"})
-    citation.cited_by_number = child_cited_items.count()
-    claims_count = soup_child.find(attrs={"itemprop": "claims"}).find(attrs={"itemprop": "count"})
-    if claims_count:
-        citation.claims = claims_count
+    citation.cited_by_number = len(child_cited_items)
+    claims_items = soup_child.find(attrs={"itemprop": "claims"})
+    if claims_items:
+        claims_count = claims_items.find(attrs={"itemprop": "count"})
+        if claims_count:
+            citation.claims = claims_count
     # Classifications
     clfc_ui_items = soup_child.find_all("ul", attrs={"itemprop": "cpcs"})
     clfc_text = "";
     if clfc_ui_items:
         for item in clfc_ui_items:
             # 最后一个<span itemprop="Code">
-            span_tags = clfc_ui_items.find_all("span", attrs={"itemprop": "Code"})
-            span_cnt = span_tags.count()
-            clfc_text += span_tags[span_cnt - 1]
+            span_tags = item.find_all("span", attrs={"itemprop": "Code"})
+            span_cnt = len(span_tags)
+            clfc_text += span_tags[span_cnt - 1].text
     citation.classifications = clfc_text
 
 # 取得Classifications-Citations

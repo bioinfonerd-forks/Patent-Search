@@ -100,16 +100,11 @@ class ClassUtil(object):
 
 class StringUtil(object):
     @staticmethod
-    def check_chinese(str):
-        zhmodel = re.compile(u'[\u4e00-\u9fa5]')  # 检查中文
-        # zhmodel = re.compile(u'[^\u4e00-\u9fa5]')   #检查非中文
-
-        match = zhmodel.search(str)
-        if match:
-            return True
-        else:
-            return False
-
+    def check_chinese(s):
+        rt = False
+        if s>= u"\u4e00" and s<= u"\u9fa6":
+            rt = True
+        return rt
 
 if __name__ == '__main__':
     date_str = DateUtil.get_next_day('20200127')
