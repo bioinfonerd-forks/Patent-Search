@@ -1,4 +1,6 @@
 # -*- coding:utf8 -*-
+import time
+
 from bs4 import BeautifulSoup
 import requests
 from biz.common import PatentDetailInfo
@@ -39,8 +41,8 @@ def get_search_patent_url(publication_number):
 
 # 取得随机user agent
 def get_random_user_agent():
-    # ua = UserAgent()
-    # user_agent_random = ua.random
+    #ua = UserAgent()
+    #user_agent_random = ua.random
     user_agent_random = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'
     return user_agent_random
 
@@ -161,12 +163,24 @@ def search_by_patent_html(patent):
     user_agent_random = get_random_user_agent()
 
     if url:
-        result = requests.get(
-            url=url,
-            headers={'Content-Type': 'test/html',
-                     'user-agent': user_agent_random
-                     }
-        )
+        try:
+            result = requests.get(
+                url=url,
+                headers={'Content-Type': 'test/html',
+                         'user-agent': user_agent_random
+                         }
+            )
+        except BaseException:
+            print
+            "Error: 服务器拒绝1次"
+            time.sleep(10)
+            user_agent_random = get_random_user_agent()
+            result = requests.get(
+                url=url,
+                headers={'Content-Type': 'test/html',
+                         'user-agent': user_agent_random
+                         }
+            )
 
     # 寻找citations 和 cite
     soup = BeautifulSoup(result.content, 'lxml')
@@ -203,7 +217,8 @@ def search_by_patent_html(patent):
 # 设定专利信息
 def set_citation(citation, item, user_agent_random):
     # 取得引用专利
-    citation.patent_citations_number = item.find(attrs={"itemprop": "publicationNumber"}).text
+    citation.publication_number = item.find(attrs={"itemprop": "publicationNumber"}).text
+
     # 星号
     star_tag = item.find(attrs={"itemprop": "examinerCited"})
     if star_tag:

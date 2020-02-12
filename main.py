@@ -1,7 +1,7 @@
 # -*- coding:utf8 -*-
 import time
 from biz.glgoo import search_by_company, search_by_company_eachpage, search_by_patent, search_by_patent_html
-from biz.orm import initial_database, initial_table_company, Company, PatentBasic, PatentDetail
+from biz.orm import initial_database, initial_table_company, Company, PatentBasic, PatentDetail, Citation
 from biz.reload import load_company
 from utils.common import ConfigUtil, DateUtil
 from utils.log import getLogger
@@ -102,6 +102,25 @@ def set_basic_info(result_list, company):
     logger.info('method [set_basic_info] end')
 
 
+def set_citations(citations_of_list):
+    logger = getLogger()
+    logger.info("method [set_citations] start")
+    for item in citations_of_list:
+        Citation.create(
+            # 专利号
+            publication_number=item.publication_number,
+            star=item.star,
+            priority_date=item.priority_date,
+            publication_date=item.publication_date,
+            assignee=item.assignee,
+            chinese=item.chinese,
+            patent_citations_number=item.patent_citations_number,
+            cited_by_number=item.cited_by_number,
+            classifications=item.classifications,
+            claims=item.claims
+        )
+
+
 # 取得detail.csv所需信息
 def get_patent_detail():
     logger = getLogger()
@@ -112,11 +131,9 @@ def get_patent_detail():
         patent_info, citations_of_list, cited_by_list = search_by_patent_html(patent)
         set_patent_detail(patent_info)
         if len(citations_of_list):
-            # ToDo 数据插入数据库
-            pass
+            set_citations(citations_of_list)
         if len(cited_by_list):
-            # ToDo 数据插入数据库
-            pass
+            set_citations(cited_by_list)
 
     logger.info("method [get_patent_detail] end")
 
@@ -136,9 +153,8 @@ def set_patent_detail(patent_info):
 
 
 if __name__ == '__main__':
-
     # if config.load_value('system', 'init_database', 'False') == 'True':
-    #    initial_database()
+    #  initial_database()
 
     # initial_table_company()
     # load_company('data/company.csv')
