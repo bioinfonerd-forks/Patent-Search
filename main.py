@@ -1,7 +1,8 @@
 # -*- coding:utf8 -*-
 import time
-from biz.glgoo import search_by_company, search_by_company_eachpage, search_by_patent, search_by_patent_html
-from biz.orm import initial_database, initial_table_company, Company, PatentBasic, PatentDetail, Citation
+from biz.glgoo import search_by_company, search_by_company_eachpage, search_by_patent,  \
+    search_report_detail
+from biz.orm import initial_database, initial_table_company, Company, PatentBasic, ReportDetail
 from biz.reload import load_company
 from utils.common import ConfigUtil, DateUtil
 from utils.log import getLogger
@@ -127,36 +128,58 @@ def get_patent_detail():
     logger.info("method [get_patent_detail] start")
 
     patent_list = PatentBasic.select()
-    for patent in patent_list:
-        patent_info, citations_of_list, cited_by_list = search_by_patent_html(patent)
-        set_patent_detail(patent_info)
-        if len(citations_of_list):
-            set_citations(citations_of_list)
-        if len(cited_by_list):
-            set_citations(cited_by_list)
+    for basic_item in patent_list:
+        detail_list = search_report_detail(basic_item)
+        if len(detail_list):
+            for detail_item in detail_list:
+                insert_patent_detail(detail_item)
 
     logger.info("method [get_patent_detail] end")
 
 
 # 将detail信息插入数据库
-def set_patent_detail(patent_info):
+def insert_patent_detail(detail_info):
     logger = getLogger()
-    logger.info("method [get_patent_detail] start, patent is {0}".format(patent_info.publication_number))
-    PatentDetail.create(
-        publication_number=patent_info.publication_number,
-        patent_citations_number=patent_info.patent_citations_number,
-        cited_by_number=patent_info.cited_by_number,
-        classifications=patent_info.classifications,
-        claims=patent_info.claims,
-        legal_events=patent_info.legal_events
+    logger.info("method [get_patent_detail] start, patent is {0}".format(detail_info.publication_number))
+    ReportDetail.create(
+        publication_number=detail_info.publication_number,
+        patent_citations_number=detail_info.patent_citations_number,
+        cited_by_number=detail_info.cited_by_number,
+        classifications=detail_info.classifications,
+        claims=detail_info.claims,
+        legal_events=detail_info.legal_events,
+
+        # 引用专利
+        patent_citations = detail_info.patent_citations,
+        star = detail_info.star,
+        priority_date = detail_info.priority_date,
+        publication_date = detail_info.publication_date,
+        assignee = detail_info.assignee,
+        chinese = detail_info.chinese,
+        patent_citations_number_ci = detail_info.patent_citations_number_ci,
+        cited_by_number_ci = detail_info.cited_by_number_ci,
+        classifications_ci = detail_info.classifications_ci,
+        claims_ci = detail_info.claims_ci,
+
+        # 被引用专利
+        patent_citations_by = detail_info.patent_citations_by,
+        star_by = detail_info.star_by,
+        priority_date_by = detail_info.priority_date_by,
+        publication_date_by = detail_info.publication_date_by,
+        assignee_by = detail_info.assignee_by,
+        chinese_by = detail_info.chinese_by,
+        patent_citations_number_by = detail_info.patent_citations_number_by,
+        cited_by_number_by = detail_info.cited_by_number_by,
+        classifications_by = detail_info.classifications_by,
+        claims_by = detail_info.claims_by
     )
 
 
 if __name__ == '__main__':
-    # if config.load_value('system', 'init_database', 'False') == 'True':
-    #  initial_database()
+    #if config.load_value('system', 'init_database', 'False') == 'True':
+       #initial_database()
 
-    # initial_table_company()
-    # load_company('data/company.csv')
-    # get_basic_info()
+    #initial_table_company()
+    #load_company('data/company.csv')
+    #get_basic_info()
     get_patent_detail()

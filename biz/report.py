@@ -1,5 +1,5 @@
 import pandas as pd
-from biz.orm import PatentBasic, PatentDetail, Citation
+from biz.orm import PatentBasic, PatentDetail, Citation, ReportDetail
 from utils.log import getLogger
 
 
@@ -38,8 +38,7 @@ def export_basic():
 def export_detail():
     logger = getLogger()
     logger.info('method [export_detail] start')
-    query = PatentDetail.select(PatentDetail).left_outer_join(Citation,
-                                                              PatentDetail.publication_number == Citation.publication_number)
+    query = ReportDetail.select()
     df = pd.DataFrame(
         columns=(
             'publication-number', 'Patent-citations-number',
@@ -59,43 +58,37 @@ def export_detail():
     )
     if len(query):
         for i, record in enumerate(query):
-            df.loc[i, 'publication_number'] = record.publication_number
-            df.loc[i, 'patent_citations_number'] = record.patent_citations_number
-            df.loc[i, 'cited_by_number'] = record.cited_by_number
-            df.loc[i, 'classifications'] = record.classifications
-            df.loc[i, 'claims'] = record.claims
-            df.loc[i, 'legal_events'] = record.legal_events
             df.loc[i, 'publication-number'] = record.publication_number
             df.loc[i, 'Patent-citations-number'] = record.patent_citations_number
             df.loc[i, 'Cited-by-Number'] = record.cited_by_number
             df.loc[i, 'Classifications'] = record.classifications
             df.loc[i, 'Claims'] = record.claims
-            df.loc[i, 'Patent-Citations'] = record.Citation.publication_number
-            df.loc[i, 'star'] = record.Citation.star
-            df.loc[i, 'Priority-date'] = record.Citation.priority_date
-            df.loc[i, 'Publication-date'] = record.Citation.publication_date
-            df.loc[i, 'Assignee'] = record.Citation.assignee
-            df.loc[i, 'chinese'] = record.Citation.chinese
-            df.loc[i, 'Patent-citations-number-Citations'] = record.Citation.patent_citations_number
-            df.loc[i, 'Cited-by-Number-Citations'] = record.Citation.patent_citations_number
-            df.loc[i, 'Classifications-Citations'] = record.Citation.classifications
-            df.loc[i, 'Claims-Citations'] = record.Citation.claims
-            df.loc[i, 'Cited-By'] = record.Citation.cited_by
-            df.loc[i, 'star-by'] = record.Citation.star
-            df.loc[i, 'Priority-date-by'] = record.Citation.priority_date
-            df.loc[i, 'Publication-date-by'] = record.Citation.publication_date
-            df.loc[i, 'Assignee-by'] = record.Citation.assignee
-            df.loc[i, 'chinese-by'] = record.Citation.chinese
-            df.loc[i, 'Patent-citations-number-by'] = record.Citation.patent_citations_number
-            df.loc[i, 'Cited-by-Number-by'] = record.Citation.cited_by_number
-            df.loc[i, 'Classifications-by'] = record.Citation.classifications
-            df.loc[i, 'Claims-by'] = record.Citation.claims
+            df.loc[i, 'Patent-Citations'] = record.patent_citations
+            df.loc[i, 'star'] = record.star
+            df.loc[i, 'Priority-date'] = record.priority_date
+            df.loc[i, 'Publication-date'] = record.publication_date
+            df.loc[i, 'Assignee'] = record.assignee
+            df.loc[i, 'chinese'] = record.chinese
+            df.loc[i, 'Patent-citations-number-Citations'] = record.patent_citations_number_ci
+            df.loc[i, 'Cited-by-Number-Citations'] = record.cited_by_number_ci
+            df.loc[i, 'Classifications-Citations'] = record.classifications_ci
+            df.loc[i, 'Claims-Citations'] = record.claims_ci
+            df.loc[i, 'Cited-By'] = record.patent_citations_by
+            df.loc[i, 'star-by'] = record.star_by
+            df.loc[i, 'Priority-date-by'] = record.priority_date_by
+            df.loc[i, 'Publication-date-by'] = record.publication_date_by
+            df.loc[i, 'Assignee-by'] = record.assignee_by
+            df.loc[i, 'chinese-by'] = record.chinese_by
+            df.loc[i, 'Patent-citations-number-by'] = record.patent_citations_number_by
+            df.loc[i, 'Cited-by-Number-by'] = record.cited_by_number_by
+            df.loc[i, 'Classifications-by'] = record.classifications_by
+            df.loc[i, 'Claims-by'] = record.claims_by
             df.loc[i, 'Legal-Events'] = record.legal_events
 
             path = "output/detail.csv"
         df.to_csv(path, encoding='utf_8_sig', index=False)
 
-    logger.info('method [export_basic] end')
+    logger.info('method [export_detail] end')
 
 
 if __name__ == '__main__':

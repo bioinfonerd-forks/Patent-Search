@@ -4,7 +4,7 @@ import time
 from bs4 import BeautifulSoup
 import requests
 from biz.common import PatentDetailInfo
-from biz.orm import Citation
+from biz.orm import ReportDetail
 from utils.common import ConfigUtil, StringUtil
 from utils.log import getLogger
 from fake_useragent import UserAgent
@@ -41,8 +41,8 @@ def get_search_patent_url(publication_number):
 
 # 取得随机user agent
 def get_random_user_agent():
-    #ua = UserAgent()
-    #user_agent_random = ua.random
+    # ua = UserAgent()
+    # user_agent_random = ua.random
     user_agent_random = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'
     return user_agent_random
 
@@ -147,21 +147,16 @@ def search_by_patent(patent):
     return patent_info, citations_of_list, cited_by_list
 
 
-# 按patent的publication_number查询 按照html
-def search_by_patent_html(patent):
+# 查询detail信息
+def search_report_detail(patent):
     logger = getLogger()
     logger.info("method [search_by_patent_html] start, patent is {0}".format(patent))
+    # 返回的 detaillist
+    detail_list = []
     # 对应PatentDetail的实例
-    patent_info = PatentDetailInfo()
-    # 被patent引用的专利
-    citations_of_list = []
-    # 引用patent的专利
-    cited_by_list = []
-    patent_info.publication_number = patent.publication_number
     url = get_search_patent_url(patent.publication_number)
     # 随机user agent
     user_agent_random = get_random_user_agent()
-
     if url:
         try:
             result = requests.get(
@@ -181,12 +176,9 @@ def search_by_patent_html(patent):
                          'user-agent': user_agent_random
                          }
             )
-
     # 寻找citations 和 cite
     soup = BeautifulSoup(result.content, 'lxml')
 
-    citations_items = soup.find_all(attrs={"itemprop": "backwardReferencesFamily"})
-    cited_items = soup.find_all(attrs={"itemprop": "forwardReferencesOrig"})
     legal_events_items = soup.find_all(attrs={"itemprop": "legalEvents"})
     legal_events_text = ""
     if legal_events_items:
@@ -194,48 +186,50 @@ def search_by_patent_html(patent):
         for item in legal_events_items:
             legal_events_text += item.text.replace("\n", "|") + ";"
     # print("patent.publication_number={0}, legal_events={1}".format(patent.publication_number, legal_events_text))
-    patent_info.legal_events = legal_events_text
 
+    citations_items = soup.find_all(attrs={"itemprop": "backwardReferencesFamily"})
+    cited_items = soup.find_all(attrs={"itemprop": "forwardReferencesOrig"})
     if citations_items:
-        for item in citations_items:
-            print(item.text)
-            citation = Citation(patent)
-            set_citation(citation, item, user_agent_random)
-            # 加入list
-            citations_of_list.append(citation)
+        for ctn_item in citations_items:
+            detail_info = ReportDetail(patent)
+            detail_info.publication_number = patent.publication_number
+            detail_info.legal_events = legal_events_text
+
+            set_detail(detail_info, ctn_item, user_agent_random)
+            detail_list.append(detail_info)
 
     if cited_items:
-        for item in cited_items:
-            print(item.text)
-            cite = Citation(patent)
-            set_citation(cite, item, user_agent_random)
-            cited_by_list.append(cite)
+        for cit in cited_items:
+            detail_info = ReportDetail()
+            detail_info.publication_number = patent.publication_number
+            detail_info.legal_events = legal_events_text
+            set_detail(detail_info, ctn_item, user_agent_random)
+            detail_list.append(detail_info)
 
-    return patent_info, citations_of_list, cited_by_list
+    return detail_list
 
 
-# 设定专利信息
-def set_citation(citation, item, user_agent_random):
+# 设定一条detail数据
+def set_detail(detail_info, ctn_item, user_agent_random):
     # 取得引用专利
-    citation.publication_number = item.find(attrs={"itemprop": "publicationNumber"}).text
-
+    detail_info.publication_number = ctn_item.find(attrs={"itemprop": "publicationNumber"}).text
     # 星号
-    star_tag = item.find(attrs={"itemprop": "examinerCited"})
+    star_tag = ctn_item.find(attrs={"itemprop": "examinerCited"})
     if star_tag:
-        citation.star = star_tag.text
+        detail_info.star = star_tag.text
     # 优先日期
-    citation.priority_date = item.find(attrs={"itemprop": "priorityDate"}).text
+    detail_info.priority_date = ctn_item.find(attrs={"itemprop": "priorityDate"}).text
     # 公布日期
-    citation.publication_date = item.find(attrs={"itemprop": "publicationDate"}).text
+    detail_info.publication_date = ctn_item.find(attrs={"itemprop": "publicationDate"}).text
     # 代理人
-    citation.assignee = item.find(attrs={"itemprop": "assigneeOriginal"}).text
+    detail_info.assignee = ctn_item.find(attrs={"itemprop": "assigneeOriginal"}).text
     # 是否中文
-    if StringUtil.check_chinese(citation.assignee):
-        citation.chinese = 1
+    if StringUtil.check_chinese(detail_info.assignee):
+        detail_info.chinese = 1
     else:
-        citation.chinese = 0
+        detail_info.chinese = 0
     # 再次查询引用
-    url_child = get_search_patent_url(citation.patent_citations_number)
+    url_child = get_search_patent_url(detail_info.patent_citations_number)
     result_child = requests.get(
         url=url_child,
         headers={'Content-Type': 'test/html',
@@ -243,14 +237,14 @@ def set_citation(citation, item, user_agent_random):
                  })
     soup_child = BeautifulSoup(result_child.content, 'lxml')
     child_citations_items = soup_child.find_all(attrs={"itemprop": "backwardReferencesFamily"})
-    citation.patent_citations_number = len(child_citations_items)
+    detail_info.patent_citations_number = len(child_citations_items)
     child_cited_items = soup_child.find_all(attrs={"itemprop": "forwardReferencesOrig"})
-    citation.cited_by_number = len(child_cited_items)
+    detail_info.cited_by_number = len(child_cited_items)
     claims_items = soup_child.find(attrs={"itemprop": "claims"})
     if claims_items:
         claims_count = claims_items.find(attrs={"itemprop": "count"})
         if claims_count:
-            citation.claims = claims_count
+            detail_info.claims = claims_count
     # Classifications
     clfc_ui_items = soup_child.find_all("ul", attrs={"itemprop": "cpcs"})
     clfc_text = "";
@@ -260,7 +254,8 @@ def set_citation(citation, item, user_agent_random):
             span_tags = item.find_all("span", attrs={"itemprop": "Code"})
             span_cnt = len(span_tags)
             clfc_text += span_tags[span_cnt - 1].text
-    citation.classifications = clfc_text
+    detail_info.classifications = clfc_text
+
 
 # 取得Classifications-Citations
 def get_classifications(result_json):
