@@ -102,9 +102,11 @@ class StringUtil(object):
     @staticmethod
     def check_chinese(s):
         rt = False
-        if s>= u"\u4e00" and s<= u"\u9fa6":
-            rt = True
+        if s:
+            if u"\u4e00" <= s <= u"\u9fa6":
+                rt = True
         return rt
+
 
 if __name__ == '__main__':
     date_str = DateUtil.get_next_day('20200127')

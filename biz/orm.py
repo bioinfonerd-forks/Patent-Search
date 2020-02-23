@@ -59,29 +59,21 @@ class ReportDetail(BaseModel):
     claims = CharField(null=True)
     legal_events = CharField(null=True)
 
-    # 引用专利
-    patent_citations = CharField(null=False)
-    star = CharField(null=True)
-    priority_date = CharField(null=True)
-    publication_date = CharField(null=True)
-    assignee = CharField(null=True)
-    chinese = BooleanField(null=False, default=False)
-    patent_citations_number_ci = IntegerField(null=True)
-    cited_by_number_ci = IntegerField(null=True)
-    classifications_ci = CharField(null=True)
-    claims_ci = CharField(null=True)
-
-    # 被引用专利
-    patent_citations_by = CharField(null=False)
-    star_by = CharField(null=True)
-    priority_date_by = CharField(null=True)
-    publication_date_by = CharField(null=True)
-    assignee_by = CharField(null=True)
-    chinese_by = BooleanField(null=False, default=False)
-    patent_citations_number_by = IntegerField(null=True)
-    cited_by_number_by = IntegerField(null=True)
-    classifications_by = CharField(null=True)
-    claims_by = CharField(null=True)
+    # 引用或被引用的ID，只会有一个不为空
+    patent_citations = CharField(null=True)
+    patent_citations_family = CharField(null=True)
+    cited_by = CharField(null=True)
+    cited_by_family = CharField(null=True)
+    # 引用或被引用的专利信息
+    ref_star = CharField(null=True)
+    ref_priority_date = CharField(null=True)
+    ref_publication_date = CharField(null=True)
+    ref_assignee = CharField(null=True)
+    ref_chinese = CharField(null=True)
+    ref_patent_citations_number = IntegerField(null=True)
+    ref_cited_by_number = IntegerField(null=True)
+    ref_classifications = CharField(null=True)
+    ref_claims = CharField(null=True)
 
     class Meta:
         order_by = ('id',)

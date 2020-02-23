@@ -115,38 +115,6 @@ def search_by_company_eachpage(company, date_begin, date_end, page):
     return result_list
 
 
-# 按patent的publication_number查询
-def search_by_patent(patent):
-    logger = getLogger()
-    logger.info("method [search_by_patent] start, patent is {0}".format(patent))
-    # 对应PatentDetail的实例
-    patent_info = PatentDetailInfo()
-    # 被patent引用的专利
-    citations_of_list = []
-    # 引用patent的专利
-    cited_by_list = []
-    patent_info.publication_number = patent.publication_number
-    url = get_search_patent_url(patent.publication_number)
-    # 随机user agent
-    user_agent_random = get_random_user_agent()
-
-    if url:
-        result = requests.get(
-            url=url,
-            headers={'Content-Type': 'application/json',
-                     'user-agent': user_agent_random
-                     }
-        )
-        result_json = result.json()
-        # Classifications
-        classification_list = get_classifications(result_json)
-        classifications = ' '.join(classification_list)
-        patent_info.classifications = classifications
-        # ToDo 获得detail.csv中其他字段信息
-
-    return patent_info, citations_of_list, cited_by_list
-
-
 # 查询detail信息
 def search_report_detail(patent):
     logger = getLogger()
@@ -187,92 +155,142 @@ def search_report_detail(patent):
             legal_events_text += item.text.replace("\n", "|") + ";"
     # print("patent.publication_number={0}, legal_events={1}".format(patent.publication_number, legal_events_text))
 
-    citations_items = soup.find_all(attrs={"itemprop": "backwardReferencesFamily"})
+    citations_items = soup.find_all(attrs={"itemprop": "backwardReferencesOrig"})
+    citations_family_items = soup.find_all(attrs={"itemprop": "backwardReferencesFamily"})
     cited_items = soup.find_all(attrs={"itemprop": "forwardReferencesOrig"})
+    cited_family_items = soup.find_all(attrs={"itemprop": "forwardReferencesFamily"})
+
+    cnt_cit = len(citations_items) + len(citations_family_items)
+    cnt_by = len(cited_items) + len(cited_family_items)
+    claims = get_claims(soup)
+    classifications = get_classifications_str(soup)
+
     if citations_items:
         for ctn_item in citations_items:
-            detail_info = ReportDetail(patent)
-            detail_info.publication_number = patent.publication_number
-            detail_info.legal_events = legal_events_text
-
-            set_detail(detail_info, ctn_item, user_agent_random)
-            detail_list.append(detail_info)
-
-    if cited_items:
-        for cit in cited_items:
             detail_info = ReportDetail()
             detail_info.publication_number = patent.publication_number
             detail_info.legal_events = legal_events_text
-            set_detail(detail_info, ctn_item, user_agent_random)
+            detail_info.patent_citations_number = cnt_cit
+            detail_info.cited_by_number = cnt_by
+            detail_info.claims = claims
+            detail_info.classifications = classifications
+            set_detail_ctn(detail_info, ctn_item, user_agent_random, 1)
             detail_list.append(detail_info)
+    if citations_family_items:
+        for ctn_item in citations_family_items:
+            detail_info = ReportDetail()
+            detail_info.publication_number = patent.publication_number
+            detail_info.legal_events = legal_events_text
+            detail_info.patent_citations_number = cnt_cit
+            detail_info.cited_by_number = cnt_by
+            detail_info.claims = claims
+            detail_info.classifications = classifications
+            set_detail_ctn(detail_info, ctn_item, user_agent_random, 2)
+            detail_list.append(detail_info)
+    if cited_items:
+        for ctn_item in cited_items:
+            detail_info = ReportDetail()
+            detail_info.publication_number = patent.publication_number
+            detail_info.legal_events = legal_events_text
+            detail_info.patent_citations_number = cnt_cit
+            detail_info.cited_by_number = cnt_by
+            detail_info.claims = claims
+            detail_info.classifications = classifications
+            set_detail_ctn(detail_info, ctn_item, user_agent_random, 3)
+            detail_list.append(detail_info)
+    if cited_family_items:
+        for ctn_item in cited_family_items:
+            detail_info = ReportDetail()
+            detail_info.publication_number = patent.publication_number
+            detail_info.legal_events = legal_events_text
+            detail_info.patent_citations_number = cnt_cit
+            detail_info.cited_by_number = cnt_by
+            detail_info.claims = claims
+            detail_info.classifications = classifications
+            set_detail_ctn(detail_info, ctn_item, user_agent_random, 4)
+            detail_list.append(detail_info)
+
+    if not citations_items and not citations_family_items and not citations_items and not citations_family_items:
+        detail_info = ReportDetail()
+        detail_info.publication_number = patent.publication_number
+        detail_info.patent_citations_number = cnt_cit
+        detail_info.cited_by_number = cnt_by
+        detail_info.claims = claims
+        detail_info.classifications = classifications
+        detail_info.legal_events = legal_events_text
+
+        detail_list.append(detail_info)
 
     return detail_list
 
 
-# 设定一条detail数据
-def set_detail(detail_info, ctn_item, user_agent_random):
+# 设定引用专利 citation
+def set_detail_ctn(detail_info, ctn_item, user_agent_random, patent_flag):
     # 取得引用专利
-    detail_info.publication_number = ctn_item.find(attrs={"itemprop": "publicationNumber"}).text
+    if patent_flag == 1:
+        detail_info.patent_citations = ctn_item.find(attrs={"itemprop": "publicationNumber"}).text
+    if patent_flag == 2:
+        detail_info.patent_citations_family = ctn_item.find(attrs={"itemprop": "publicationNumber"}).text
+    if patent_flag == 3:
+        detail_info.cited_by = ctn_item.find(attrs={"itemprop": "publicationNumber"}).text
+    if patent_flag == 4:
+        detail_info.cited_by_family = ctn_item.find(attrs={"itemprop": "publicationNumber"}).text
     # 星号
     star_tag = ctn_item.find(attrs={"itemprop": "examinerCited"})
     if star_tag:
-        detail_info.star = star_tag.text
+        detail_info.ref_star = star_tag.text
     # 优先日期
-    detail_info.priority_date = ctn_item.find(attrs={"itemprop": "priorityDate"}).text
+    detail_info.ref_priority_date = ctn_item.find(attrs={"itemprop": "priorityDate"}).text
     # 公布日期
-    detail_info.publication_date = ctn_item.find(attrs={"itemprop": "publicationDate"}).text
+    detail_info.ref_publication_date = ctn_item.find(attrs={"itemprop": "publicationDate"}).text
     # 代理人
-    detail_info.assignee = ctn_item.find(attrs={"itemprop": "assigneeOriginal"}).text
+    detail_info.ref_assignee = ctn_item.find(attrs={"itemprop": "assigneeOriginal"}).text
     # 是否中文
-    if StringUtil.check_chinese(detail_info.assignee):
-        detail_info.chinese = 1
-    else:
-        detail_info.chinese = 0
+    if detail_info.ref_assignee:
+        if StringUtil.check_chinese(detail_info.ref_assignee):
+            detail_info.ref_chinese = '1'
+        else:
+            detail_info.ref_chinese = '0'
     # 再次查询引用
-    url_child = get_search_patent_url(detail_info.patent_citations_number)
+    url_child = get_search_patent_url(detail_info.ref_patent_citations_number)
     result_child = requests.get(
         url=url_child,
         headers={'Content-Type': 'test/html',
                  'user-agent': user_agent_random
                  })
     soup_child = BeautifulSoup(result_child.content, 'lxml')
-    child_citations_items = soup_child.find_all(attrs={"itemprop": "backwardReferencesFamily"})
-    detail_info.patent_citations_number = len(child_citations_items)
-    child_cited_items = soup_child.find_all(attrs={"itemprop": "forwardReferencesOrig"})
-    detail_info.cited_by_number = len(child_cited_items)
-    claims_items = soup_child.find(attrs={"itemprop": "claims"})
-    if claims_items:
-        claims_count = claims_items.find(attrs={"itemprop": "count"})
-        if claims_count:
-            detail_info.claims = claims_count
+    citations_items = soup_child.find_all(attrs={"itemprop": "backwardReferencesOrig"})
+    citations_family_items = soup_child.find_all(attrs={"itemprop": "backwardReferencesFamily"})
+    cited_items = soup_child.find_all(attrs={"itemprop": "forwardReferencesOrig"})
+    cited_family_items = soup_child.find_all(attrs={"itemprop": "forwardReferencesFamily"})
+
+    detail_info.ref_patent_citations_number = len(citations_items) + len(citations_family_items)
+    detail_info.ref_cited_by_number = len(cited_items) + len(cited_family_items)
+
+    detail_info.ref_claims = get_claims(soup_child)
     # Classifications
-    clfc_ui_items = soup_child.find_all("ul", attrs={"itemprop": "cpcs"})
+    detail_info.ref_classifications = get_classifications_str(soup_child)
+    return detail_info
+
+
+def get_claims(soup_obj):
+    claims_count = 0
+    claims_items = soup_obj.find(attrs={"itemprop": "claims"})
+    if claims_items:
+        claims_count = claims_items.find(attrs={"itemprop": "count"}).text
+    return claims_count
+
+
+def get_classifications_str(soup_obj):
+    clfc_ui_items = soup_obj.find_all("ul", attrs={"itemprop": "cpcs"})
     clfc_text = "";
     if clfc_ui_items:
         for item in clfc_ui_items:
             # 最后一个<span itemprop="Code">
             span_tags = item.find_all("span", attrs={"itemprop": "Code"})
             span_cnt = len(span_tags)
-            clfc_text += span_tags[span_cnt - 1].text
-    detail_info.classifications = clfc_text
-
-
-# 取得Classifications-Citations
-def get_classifications(result_json):
-    classification_list = []
-    soup = BeautifulSoup(result_json, 'lxml')
-    first_ul = soup.find(attrs={'itemprop': 'cpcs'})
-    if len(first_ul):
-        parent_ul = first_ul.parent.parent
-        for li in parent_ul.children:
-            classification = ''
-            if len(li) > 1:
-                all_li = li.findAll('li')
-                for li_child in all_li:
-                    classification = li_child.find('span').text
-                classification_list.append(classification)
-
-    return classification_list
+            clfc_text += span_tags[span_cnt - 1].text + "|"
+    return clfc_text
 
 
 if __name__ == '__main__':
