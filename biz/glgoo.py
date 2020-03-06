@@ -80,7 +80,7 @@ def search_by_company(company, date_begin, date_end):
     logger.info("method [search_by_company] end, company is {0}, date_begin is {1}, date_end is {2}".format(
         company, date_begin, date_end))
 
-    return total_num_pages, result_list
+    return total_num_pages, result_list, result_count
 
 
 # 按企业名称查询，返回每一页的结果信息（从第二页开始）
@@ -165,7 +165,7 @@ def search_report_detail(patent):
     claims = get_claims(soup)
     classifications = get_classifications_str(soup)
 
-    if citations_items:
+    if len(citations_items):
         for ctn_item in citations_items:
             detail_info = ReportDetail()
             detail_info.publication_number = patent.publication_number
@@ -176,7 +176,7 @@ def search_report_detail(patent):
             detail_info.classifications = classifications
             set_detail_ctn(detail_info, ctn_item, user_agent_random, 1)
             detail_list.append(detail_info)
-    if citations_family_items:
+    if len(citations_family_items):
         for ctn_item in citations_family_items:
             detail_info = ReportDetail()
             detail_info.publication_number = patent.publication_number
@@ -187,7 +187,7 @@ def search_report_detail(patent):
             detail_info.classifications = classifications
             set_detail_ctn(detail_info, ctn_item, user_agent_random, 2)
             detail_list.append(detail_info)
-    if cited_items:
+    if len(cited_items):
         for ctn_item in cited_items:
             detail_info = ReportDetail()
             detail_info.publication_number = patent.publication_number
@@ -198,7 +198,7 @@ def search_report_detail(patent):
             detail_info.classifications = classifications
             set_detail_ctn(detail_info, ctn_item, user_agent_random, 3)
             detail_list.append(detail_info)
-    if cited_family_items:
+    if len(cited_family_items):
         for ctn_item in cited_family_items:
             detail_info = ReportDetail()
             detail_info.publication_number = patent.publication_number
@@ -210,7 +210,7 @@ def search_report_detail(patent):
             set_detail_ctn(detail_info, ctn_item, user_agent_random, 4)
             detail_list.append(detail_info)
 
-    if not citations_items and not citations_family_items and not citations_items and not citations_family_items:
+    if not citations_items and not citations_family_items and not cited_items and not cited_family_items:
         detail_info = ReportDetail()
         detail_info.publication_number = patent.publication_number
         detail_info.patent_citations_number = cnt_cit
@@ -227,24 +227,32 @@ def search_report_detail(patent):
 # 设定引用专利 citation
 def set_detail_ctn(detail_info, ctn_item, user_agent_random, patent_flag):
     # 取得引用专利
+    ref_publicationNumber = ctn_item.find(attrs={"itemprop": "publicationNumber"}).text
     if patent_flag == 1:
-        detail_info.patent_citations = ctn_item.find(attrs={"itemprop": "publicationNumber"}).text
+        detail_info.patent_citations = ref_publicationNumber
     if patent_flag == 2:
-        detail_info.patent_citations_family = ctn_item.find(attrs={"itemprop": "publicationNumber"}).text
+        detail_info.patent_citations_family = ref_publicationNumber
     if patent_flag == 3:
-        detail_info.cited_by = ctn_item.find(attrs={"itemprop": "publicationNumber"}).text
+        detail_info.cited_by = ref_publicationNumber
     if patent_flag == 4:
-        detail_info.cited_by_family = ctn_item.find(attrs={"itemprop": "publicationNumber"}).text
+        detail_info.cited_by_family = ref_publicationNumber
     # 星号
     star_tag = ctn_item.find(attrs={"itemprop": "examinerCited"})
     if star_tag:
         detail_info.ref_star = star_tag.text
     # 优先日期
-    detail_info.ref_priority_date = ctn_item.find(attrs={"itemprop": "priorityDate"}).text
+    temp_item = ctn_item.find(attrs={"itemprop": "priorityDate"})
+    if temp_item:
+        detail_info.ref_priority_date = temp_item.text
     # 公布日期
-    detail_info.ref_publication_date = ctn_item.find(attrs={"itemprop": "publicationDate"}).text
+    temp_item = ctn_item.find(attrs={"itemprop": "publicationDate"})
+    if temp_item:
+        detail_info.ref_publication_date = temp_item.text
     # 代理人
-    detail_info.ref_assignee = ctn_item.find(attrs={"itemprop": "assigneeOriginal"}).text
+    temp_item = ctn_item.find(attrs={"itemprop": "assigneeOriginal"})
+    if temp_item:
+        detail_info.ref_assignee = temp_item.text
+
     # 是否中文
     if detail_info.ref_assignee:
         if StringUtil.check_chinese(detail_info.ref_assignee):
@@ -252,7 +260,7 @@ def set_detail_ctn(detail_info, ctn_item, user_agent_random, patent_flag):
         else:
             detail_info.ref_chinese = '0'
     # 再次查询引用
-    url_child = get_search_patent_url(detail_info.ref_patent_citations_number)
+    url_child = get_search_patent_url(ref_publicationNumber)
     result_child = requests.get(
         url=url_child,
         headers={'Content-Type': 'test/html',
@@ -277,7 +285,9 @@ def get_claims(soup_obj):
     claims_count = 0
     claims_items = soup_obj.find(attrs={"itemprop": "claims"})
     if claims_items:
-        claims_count = claims_items.find(attrs={"itemprop": "count"}).text
+        claims_count_element = claims_items.find(attrs={"itemprop": "count"})
+        if claims_count_element:
+            claims_count = claims_count_element.text
     return claims_count
 
 

@@ -7,12 +7,31 @@ from dateutil.relativedelta import relativedelta
 class DateUtil(object):
 
     @staticmethod
-    def get_date(date_begin, month_interval):
+    def get_date(date_begin, month_interval, date_to):
         date_now = datetime.datetime.now()
         date_begin = datetime.datetime.strptime(date_begin, "%Y%m%d")
-        if date_begin > date_now:
+        if date_to and date_begin > date_to:
             return ''
+        elif date_begin > date_now:
+            return ''
+
         date_end = date_begin + relativedelta(months=month_interval)
+
+        if date_now < date_end:
+            date_end = date_now
+        date_end = date_end.strftime("%Y%m%d")
+        return date_end
+
+    @staticmethod
+    def get_date_by_day(date_begin, day_interval, date_to):
+        date_now = datetime.datetime.now()
+        date_begin = datetime.datetime.strptime(date_begin, "%Y%m%d")
+        if date_to and date_begin > date_to:
+            return ''
+        elif date_begin > date_now:
+            return ''
+
+        date_end = date_begin + relativedelta(days=day_interval)
 
         if date_now < date_end:
             date_end = date_now
@@ -23,8 +42,8 @@ class DateUtil(object):
     def get_next_day(date_begin):
         date_begin = datetime.datetime.strptime(date_begin, "%Y%m%d")
         next_day = date_begin + datetime.timedelta(days=1)
-        next_day_str = next_day.strftime("%Y%m%d")
-        return next_day_str
+
+        return next_day
 
 
 class ConfigUtil(object):
@@ -102,13 +121,12 @@ class StringUtil(object):
     @staticmethod
     def check_chinese(s):
         rt = False
-        if s:
-            if u"\u4e00" <= s <= u"\u9fa6":
-                rt = True
+        #if s:
+        #    if u"\u4e00" <= s <= u"\u9fa6":
+        #        rt = True
         return rt
 
 
 if __name__ == '__main__':
-    date_str = DateUtil.get_next_day('20200127')
-    print(date_str)
-    # pass
+    sss = StringUtil.check_chinese("大fghgfh")
+    print(sss)

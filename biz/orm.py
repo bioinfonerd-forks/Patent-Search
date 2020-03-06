@@ -14,6 +14,10 @@ class Company(BaseModel):
     stckcd = CharField(null=True)
     # 公司名称
     company_name = CharField(null=False)
+    # 专利数
+    patent_count = IntegerField(null=True)
+    # 完成flag。 0：没完成， 1：已完成
+    finished = IntegerField(null=True)
 
     class Meta:
         order_by = ('id',)
@@ -37,6 +41,8 @@ class PatentBasic(BaseModel):
     priority = CharField(null=True)
     filed = CharField(null=True)
     published = CharField(null=True)
+    # 完成flag。 0：没完成， 1：已完成
+    finished = IntegerField(null=True)
 
     class Meta:
         order_by = ('id',)

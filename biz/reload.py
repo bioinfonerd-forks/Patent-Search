@@ -26,6 +26,7 @@ def load_company(file_path):
             Company.create(
                 stckcd=stckcd,
                 company_name=company_name,
+                finished=0
             )
     else:
         logger.info("input file [{0}] not exists.".format(file_path))

@@ -5,9 +5,30 @@ from biz.orm import initial_database, initial_table_company, Company, PatentBasi
 from biz.reload import load_company
 from utils.common import ConfigUtil, DateUtil
 from utils.log import getLogger
+import datetime
 
 # 读取配置文件
 config = ConfigUtil()
+
+
+def get_company_info():
+    logger = getLogger()
+    logger.info('method [get_company_info] start')
+    company_list = Company.select()
+    normal_interval = int(config.load_value('search', 'normal_interval', '5'))
+    if len(company_list) == 0:
+        logger.info('No company exists')
+        return
+    for company in company_list:
+        logger.info('begin to process company {0}'.format(company.company_name))
+        date_begin = config.load_value('search', 'date_begin', '20000101')
+        current_page = 0
+        date_end = datetime.datetime.now().strftime('%Y%m%d')
+        total_num_pages, result_list, result_count = search_by_company(company.company_name, date_begin, date_end)
+        company.patent_count = result_count
+        company.update_datetime = datetime.datetime.now()
+        company.save()
+        time.sleep(normal_interval)
 
 
 # 取得basic.csv所需信息
@@ -15,30 +36,48 @@ def get_basic_info():
     logger = getLogger()
     logger.info('method [get_basic_info] start')
 
-    # 取得企业信息
-    company_list = Company.select()
+    # 取得企业信息 专利数>0
+    company_list = Company.select().where(Company.patent_count > 0, Company.finished == 0)
     if len(company_list) == 0:
         logger.info('No company exists')
         return
+    normal_interval = int(config.load_value('search', 'normal_interval', '5'))
     search_company_page_interval = int(config.load_value('search', 'search_company_page_interval', '10'))
     search_company_date_interval = int(config.load_value('search', 'search_company_date_interval', '10'))
-    search_month_interval = int(config.load_value('search', 'search_month_interval', '4'))
+    search_to_date = config.load_value('search', 'search_to_date')
+    if search_to_date:
+        search_to_date = datetime.datetime.strptime(search_to_date, "%Y%m%d")
+    else:
+        search_to_date = datetime.datetime.now()
     # 按企业名称循环查询
     for company in company_list:
         logger.info('begin to process company {0}'.format(company.company_name))
+        temp_day_interval = int(config.load_value('search', 'search_day_interval', '4'))
         date_begin = config.load_value('search', 'date_begin', '20000101')
 
         # 根据开始和截至日期循环查询
         while True:
             time.sleep(search_company_date_interval)
-            # 获取截止日期
-            date_end = DateUtil.get_date(date_begin, search_month_interval)
-            if date_end == '':
-                logger.info('process company {0} end, wait 5 seconds to process next one'.format(company.company_name))
-                time.sleep(5)
-                break
+            # 根据总专利数 设定每次查询间隔月
+            if company.patent_count < 300:
+                date_end = datetime.datetime.now().strftime("%Y%m%d")
+                total_num_pages, result_list, result_count = search_by_company(company.company_name, date_begin,
+                                                                               date_end)
+            else:
+                while True:
+                    # 获取截止日期
+                    date_end = DateUtil.get_date_by_day(date_begin, temp_day_interval, search_to_date)
+                    total_num_pages, result_list, result_count = search_by_company(company.company_name, date_begin,
+                                                                                   date_end)
+                    time.sleep(normal_interval)
+                    if result_count >= 300:
+                        temp_day_interval = temp_day_interval / 3
+                        continue
+                    else:
+                        break
+
             current_page = 0
-            total_num_pages, result_list = search_by_company(company.company_name, date_begin, date_end)
+
             logger.info('process company {0} , total_num_pages is {1}'.format(company.company_name, total_num_pages))
             # 查询结果不为空
             if len(result_list):
@@ -55,6 +94,13 @@ def get_basic_info():
                         break
             # 重置开始日期
             date_begin = DateUtil.get_next_day(date_end)
+            if date_begin >= search_to_date:
+                break
+            date_begin = date_begin.strftime("%Y%m%d")
+        # 更新company的flag
+        company.finished = 1
+        company.update_datetime = datetime.datetime.now()
+        company.save()
     logger.info('method [get_basic_info] end')
 
 
@@ -97,7 +143,8 @@ def set_basic_info(result_list, company):
             company2=company2,
             priority=priority,
             filed=patent['filing_date'],
-            published=patent['publication_date']
+            published=patent['publication_date'],
+            finished=0
         )
     logger.info('method [set_basic_info] end')
 
@@ -106,14 +153,17 @@ def set_basic_info(result_list, company):
 def get_patent_detail():
     logger = getLogger()
     logger.info("method [get_patent_detail] start")
+    normal_interval = int(config.load_value('search', 'normal_interval', '5'))
 
-    patent_list = PatentBasic.select()
+    patent_list = PatentBasic.select().where(PatentBasic.finished == 0)
     for basic_item in patent_list:
         detail_list = search_report_detail(basic_item)
         if len(detail_list):
             for detail_item in detail_list:
                 insert_patent_detail(detail_item)
-
+        basic_item.finished = 1
+        basic_item.save()
+        time.sleep(normal_interval)
     logger.info("method [get_patent_detail] end")
 
 
@@ -148,10 +198,12 @@ def insert_patent_detail(detail_info):
 
 
 if __name__ == '__main__':
-    #if config.load_value('system', 'init_database', 'False') == 'True':
-    #   initial_database()
+    if config.load_value('system', 'init_database', 'False') == 'True':
+        initial_database()
+        initial_table_company()
+    if config.load_value('system', 'load_company', 'False') == 'True':
+        load_company('data/company.csv')
+        get_company_info()
 
-    #initial_table_company()
-    #load_company('data/company.csv')
-    #get_basic_info()
+    get_basic_info()
     get_patent_detail()
